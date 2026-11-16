@@ -1,96 +1,98 @@
-# BASKET — Two-Developer Git and Antigravity Workflow
+# BASKET — Git Workflow & Development Operations
 
-## 1. Repository branches
+This document establishes the Git discipline and daily operational routines for the BASKET engineering team.
+
+---
+
+## 1. Branching Topology
 
 ```text
-main
-  └── integration
-        ├── feature/catalogue-search
-        ├── feature/cart-checkout
-        ├── feature/kafka-outbox
-        └── feature/one-approved-differentiator
+main (Production / Demo Baseline — Protected)
+  └── integration (Shared Active Development Trunk — Protected)
+        ├── feature/catalogue-search        (Developer 1)
+        ├── feature/cart-checkout           (Developer 2)
+        ├── feature/kafka-outbox            (Developer 2)
+        └── docs/developer-handoff          (Handoff & Documentation)
 ```
 
-- `main`: stable, demo-ready code only.
-- `integration`: shared integration branch.
-- `feature/*`: isolated task branches.
+- **`main`:** Stable, verified demo code only. Direct commits and pushes are prohibited.
+- **`integration`:** Shared integration branch. All feature branches branch from and merge into `integration`.
+- **`feature/*`:** Isolated task branches for specific modules.
+- **`docs/*`:** Dedicated documentation updates.
 
-Protect `main` and `integration` where GitHub settings allow. Require PR review and passing checks before merging.
+---
 
-## 2. Separate working directories
+## 2. Parallel Development via Git Worktrees
 
-Two agents must not edit the same working tree concurrently.
-
-If both developers use the same computer, use Git worktrees:
+When two developers (or two Antigravity agent sessions) work on the same machine, they **must not** edit the same working tree simultaneously. Use Git worktrees to create isolated directories:
 
 ```bash
-git clone YOUR_REPOSITORY_URL basket
+# Clone primary repository
+git clone https://github.com/Rahul2006MILLION/Online_Shopping basket
 cd basket
 git checkout integration
 git pull origin integration
 
-git worktree add ../basket-dev-a -b feature/catalogue-search integration
-git worktree add ../basket-dev-b -b feature/cart-checkout integration
+# Create isolated worktree for Developer 1 (Discovery & Search)
+git worktree add ../basket-dev-1 -b feature/catalogue-search integration
+
+# Create isolated worktree for Developer 2 (Cart & Checkout)
+git worktree add ../basket-dev-2 -b feature/cart-checkout integration
 ```
 
-Open `basket-dev-a` and `basket-dev-b` as separate Antigravity workspaces.
+Open `basket-dev-1` and `basket-dev-2` in separate Antigravity workspaces.
 
-If developers use separate computers, each should have their own clone and branch.
+---
 
-## 3. Feature branch routine
+## 3. Feature Branch Routine
 
+### Step 1: Start from Clean Integration
 ```bash
 git fetch origin
 git checkout integration
 git pull --ff-only origin integration
-git checkout -b feature/short-feature-name
-
-# implement and test
-git status
-git diff --check
-git add path/to/your/changes
-git commit -m "feat: implement short feature"
-git push -u origin feature/short-feature-name
+git checkout -b feature/your-feature-name
 ```
 
-Open a PR from the feature branch into `integration`. Include scope, screenshots/API examples, tests, migration notes, and known limitations.
+### Step 2: Implement and Test Locally
+Write code and tests. Before committing, run the complete verification gate:
+```bash
+./scripts/verify-environment.sh
+```
 
-## 4. Before starting a task
+### Step 3: Commit Using Conventional Commits
+```bash
+git add path/to/changed/files
+git commit -m "feat(catalogue): implement category hierarchy endpoint"
+```
 
-- Confirm task owner in `TASK_BREAKDOWN.md`.
-- Read `AGENT_HANDOFF.md` for open proposals/blockers.
-- Check whether your work touches shared contracts.
-- Agree on API request/response shapes before parallel frontend/backend work.
-- Create a small implementation plan and list expected files.
+### Step 4: Push and Open Pull Request
+```bash
+git push -u origin feature/your-feature-name
+```
+Open a Pull Request on GitHub targeting `integration`.
 
-## 5. During work
+---
 
-- Commit in small logical units.
-- Pull integration changes regularly; rebase only your own feature branch.
-- Do not force-push shared branches.
-- Do not commit generated build folders, `.env`, credentials, or unrelated formatting churn.
-- If blocked by another module, use a stub only when its contract is agreed and clearly marked as a temporary integration boundary.
+## 4. Pull Request Review & Merge Checklist
 
-## 6. Pull request checklist
+Before merging into `integration`, the reviewer must verify:
+- [ ] PR targets `integration` (never `main`).
+- [ ] All automated checks pass (`./scripts/verify-environment.sh`).
+- [ ] Scope matches assigned task in `TASK_BREAKDOWN.md`.
+- [ ] No `.env`, secrets, or private certificates committed.
+- [ ] Database migrations are backwards-compatible and tested for downgrade.
+- [ ] API changes match `API_CONTRACTS.md`.
+- [ ] No unhandled exceptions or fake mock data presented as live.
 
-- [ ] Scope matches assigned task.
-- [ ] No unrelated files changed.
-- [ ] Tests added/updated and passing.
-- [ ] Lint/type checks pass.
-- [ ] Migration is coordinated and tested.
-- [ ] API contract is updated if needed.
-- [ ] No secrets or personal data.
-- [ ] Error/loading/empty states handled.
-- [ ] Known limitations disclosed.
-- [ ] Reviewer understands how to verify the change.
+**Merge Policy:** Use standard **Merge Commit** to preserve full feature commit history. Do not squash or rebase without explicit coordination.
 
-## 7. Integration owner
+---
 
-Assign one developer as integration owner. This person:
-- Owns `integration` branch health.
-- Coordinates shared files and migrations.
-- Reviews PRs and resolves conflicts.
-- Runs the full integration test path.
-- Decides whether a feature is ready for `main`.
+## 5. Integration Owner Responsibilities
 
-The integration owner is not allowed to bypass tests or silently discard the other developer's work.
+The designated Integration Owner is responsible for:
+1. Maintaining `integration` branch health.
+2. Reviewing and merging all feature PRs.
+3. Coordinating shared database migrations to prevent multiple Alembic heads.
+4. Promoting tested, demo-ready milestones from `integration` to `main`.

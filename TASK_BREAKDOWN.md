@@ -1,114 +1,87 @@
-# BASKET — Task Breakdown and Ownership
+# BASKET — Engineering Task Breakdown & Role Ownership
 
-> Fill in the two developer names/handles and ownership before parallel coding. This is a suggested split; adjust it to actual strengths, but keep shared foundation work coordinated.
+> **Milestone Status:** Phase 0 Completed (`db9d790`); Phase 1 Ready for Implementation.
 
-## 1. Assign roles
+---
 
-| Responsibility | Owner |
-|---|---|
-| Integration owner | **Fill in** |
-| Frontend foundation | **Fill in** |
-| Backend foundation | **Fill in** |
-| Database/Alembic migration owner | **Fill in one person** |
-| Aiven account/service setup | **Fill in** |
-| Demo/release owner | **Fill in** |
+## 1. Team Role Assignments
 
-## 2. Phase 0 — jointly agree (do not parallelize prematurely)
+| Responsibility | Proposed Role | Assigned Developer / Handle | Status |
+|---|---|---|---|
+| **Integration Owner** | Core Shared Contracts, Migrations & Release | `To be assigned` | Unassigned |
+| **Developer 1** | Product Discovery & Search (Frontend & Backend) | `To be assigned` | Unassigned |
+| **Developer 2** | Cart, Inventory, Orders & Outbox (Frontend & Backend) | `To be assigned` | Unassigned |
+| **Aiven Cloud Admin** | Infrastructure credentials, SSL certs & topics | `To be assigned` | Unassigned |
 
-- [ ] Create repository and `integration` branch.
-- [ ] Add these project documents.
-- [ ] Confirm stack and environment variable names.
-- [ ] Agree API envelope, IDs, money representation, timestamps, pagination.
-- [ ] Agree initial logical data model.
-- [ ] Assign module/file ownership.
-- [ ] Create `.env.example` with placeholders only.
-- [ ] Establish lint, format, type-check, and test commands.
+---
 
-## 3. Phase 1 — shared foundation
+## 2. Phase 0 — Foundation Baseline (`COMPLETED`)
 
-Developer A:
-- [ ] Next.js app shell and routing.
-- [ ] Design tokens, layout, navigation, reusable UI patterns.
-- [ ] Typed API client and global error/loading patterns.
+- [x] Create repository structure, `.gitignore`, and Git branch baseline (`integration`).
+- [x] Author all 11 foundational governance and architecture documents.
+- [x] Configure backend settings, Pydantic schemas, and structured logging.
+- [x] Implement SQLAlchemy 2.0 async engine supporting Aiven PostgreSQL SSL and SQLite testing.
+- [x] Initialize Alembic harness and verify baseline migration discovery (`0001_initial_baseline.py`).
+- [x] Implement `/health` (liveness), `/ready` (dependency check), and `/api/v1/info` endpoints.
+- [x] Initialize Next.js 15 App Router frontend with React 19, Tailwind CSS, and shadcn/ui.
+- [x] Implement centralized typed `ApiClient` with GET, POST, PATCH, DELETE and unit tests.
+- [x] Create automated bootstrap (`scripts/dev-setup.sh`) and verification (`scripts/verify-environment.sh`) scripts.
+- [x] Pass all foundation quality gates, execute Phase 0.1–0.4 audit, and merge via PR #1 (`db9d790`).
 
-Developer B:
-- [ ] FastAPI app factory and versioned routing.
-- [ ] Settings, logging, error handling, health/readiness.
-- [ ] SQLAlchemy session and Alembic baseline.
-- [ ] Initial tests and backend conventions.
+---
 
-Together:
-- [ ] Connect to shared Aiven PostgreSQL.
-- [ ] Validate migrations on a clean database.
-- [ ] Freeze initial API/data contracts.
-- [ ] Agree seed-data format and demo accounts.
+## 3. Phase 1 — Commerce Core Journey (`PLANNED / NEXT MILESTONE`)
 
-Do not move to broad feature work until the foundation can start, connect, migrate, and pass smoke tests.
+### Pre-Requisite Gate (Integration Owner)
+- [ ] Formally sign off on the 10 outstanding decisions in `PROJECT_STATUS.md`.
+- [ ] Author Alembic migration `0002_phase1_commerce_schema.py`.
+- [ ] Apply migration and verify on clean PostgreSQL and SQLite databases.
+- [ ] Add `aiokafka>=0.11.0` and `opensearch-py>=2.8.0` to `requirements.txt`.
 
-## 4. Phase 2 — mandatory commerce vertical slice
+### Developer 1: Product Discovery & Search
+- **Backend:**
+  - [ ] Implement `backend/app/modules/catalogue/models.py`, `schemas.py`, `services.py`.
+  - [ ] Implement `GET /api/v1/categories` category tree hierarchy.
+  - [ ] Implement `GET /api/v1/products` and `GET /api/v1/products/{id}`.
+  - [ ] Implement `backend/app/modules/search/` with OpenSearch query DSL.
+  - [ ] Implement `GET /api/v1/search` with keyword query, category filter, and price facets.
+  - [ ] Implement OpenSearch consumer worker subscribing to `basket.catalogue.v1` and `basket.inventory.v1`.
+- **Frontend:**
+  - [ ] Implement `frontend/features/catalogue/` (product cards, variant selector, category navigation).
+  - [ ] Implement `frontend/features/search/` (search bar, filter sidebar, pagination).
+  - [ ] Implement product details page (`frontend/app/products/[id]/page.tsx`).
 
-Suggested split:
+### Developer 2: Cart, Inventory & Orders
+- **Backend:**
+  - [ ] Implement `backend/app/modules/cart/` (session-backed and user-backed carts).
+  - [ ] Implement `GET /api/v1/cart`, `POST /api/v1/cart/items`, `PATCH /api/v1/cart/items/{id}`, `DELETE /api/v1/cart/items/{id}`.
+  - [ ] Implement `POST /api/v1/checkout/quote` with HMAC token signing and 5-minute TTL.
+  - [ ] Implement `backend/app/modules/inventory/` with atomic sorted row-locking (`ORDER BY listing_id ASC FOR UPDATE`).
+  - [ ] Implement `POST /api/v1/checkout` creating order and atomic reservation under idempotency key.
+  - [ ] Implement `POST /api/v1/orders/{id}/demo-confirm` (development mode only).
+  - [ ] Implement `backend/app/events/outbox/` background publisher daemon.
+  - [ ] Implement reservation expiry daemon releasing stock after 10 minutes.
+- **Frontend:**
+  - [ ] Implement `frontend/features/cart/` (slide-out cart drawer, item count badge).
+  - [ ] Implement `frontend/features/checkout/` (address form, quote review, place order button).
+  - [ ] Implement order confirmation page (`frontend/app/orders/[id]/page.tsx`).
 
-Developer A:
-- [ ] Catalogue browsing and product details UI.
-- [ ] Search UI and filters.
-- [ ] Cart UI and state integration.
-- [ ] Checkout/order status UI.
+---
 
-Developer B:
-- [ ] Catalogue and search API.
-- [ ] OpenSearch indexing and search integration.
-- [ ] Cart persistence and server-side validation.
-- [ ] Inventory reservation, checkout, orders, payment sandbox boundary.
+## 4. Phase 2 — System Integration & End-to-End Proof (`PLANNED`)
 
-Joint:
-- [ ] End-to-end browse → search → cart → checkout → order verification.
-- [ ] Verify PostgreSQL is authoritative.
-- [ ] Verify OpenSearch is used for actual search.
+- [ ] Connect Frontend catalogue & search to cart drawer.
+- [ ] Wire checkout page to `/api/v1/checkout/quote` and `/api/v1/checkout`.
+- [ ] Verify `order.created` event published to Kafka broker.
+- [ ] Verify OpenSearch index automatically updates when stock reaches 0.
+- [ ] Execute complete customer journey: browse -> search -> cart -> checkout -> order confirmation.
 
-## 5. Phase 3 — Kafka and reliability
+---
 
-Assign one owner for each task:
-- [ ] Transactional outbox schema and service.
-- [ ] Outbox publisher to Kafka.
-- [ ] Order-created event schema.
-- [ ] Idempotent consumer.
-- [ ] Consumer reaction (for example, update a read model/index or record a notification job).
-- [ ] Retry/error handling and observability.
-- [ ] Demonstrate duplicate event does not duplicate side effects.
+## 5. Phase 3 — Sale Storm & Reliability Demonstration (`PLANNED`)
 
-## 6. Phase 4 — Sale Storm proof
-
-- [ ] Create controlled test inventory.
-- [ ] Run concurrent checkout attempts.
-- [ ] Verify no oversell.
-- [ ] Verify all-or-nothing multi-item reservation.
-- [ ] Verify expiry releases stock once.
-- [ ] Capture test output for demo.
-
-## 7. Phase 5 — choose differentiators
-
-Choose **one or two** based on remaining time and quality:
-
-| Feature | Small credible slice |
-|---|---|
-| Quinn | Generate expiring quote; backend enforces discount floor |
-| Apni Bhasha | Search across one or two tested languages |
-| Basket Suggests | Compare same exact variant across two sellers |
-| Demand Gap Radar | Aggregate zero-result searches by region/category |
-| Basket Mission | Generate one editable cross-category shopping plan |
-| Demand Exchange | One Demand Box and one retailer offer response |
-| Product Proof | Show provenance and evidence for selected claims |
-| BASKET LIVE | Voice input/output behind a provider adapter, only if verified |
-
-## 8. Phase 6 — freeze and demo
-
-- [ ] Stop adding features.
-- [ ] Run clean setup and migration.
-- [ ] Run automated tests and end-to-end smoke test.
-- [ ] Verify PostgreSQL, Kafka, OpenSearch live behaviour.
-- [ ] Test failure states and empty catalogue.
-- [ ] Remove debug routes and secrets.
-- [ ] Seed a predictable demo dataset.
-- [ ] Rehearse the demo with a backup recording/screenshots.
-- [ ] Merge only tested commits to `main`.
+- [ ] Write Sale Storm concurrency test (`scripts/test-sale-storm.sh`).
+- [ ] Run 50 concurrent checkouts against 5 available units; verify 5 succeed, 45 fail with 409, 0 oversold.
+- [ ] Demonstrate outbox worker lease fencing and crash recovery.
+- [ ] Connect to live Aiven PostgreSQL, Kafka, and OpenSearch; verify telemetry in Aiven Console.
+- [ ] Rehearse live demonstration and record backup demonstration video.

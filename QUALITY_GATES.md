@@ -1,80 +1,69 @@
-# BASKET — Quality Gates and Definition of Done
+# BASKET — Quality Gates & Definition of Done
 
-Quality is the release criterion. A feature is not complete because a page renders or an endpoint returns HTTP 200.
+> Quality and correctness take strict precedence over feature volume. A feature is not complete because an endpoint returns HTTP 200 or a page renders mock data.
 
-## 1. Foundation gate
+---
 
-- [ ] New developer can follow README setup without undocumented steps.
-- [ ] Frontend starts and backend starts independently.
-- [ ] Environment configuration is validated at startup.
-- [ ] `.env.example` contains placeholders, not real secrets.
-- [ ] PostgreSQL connection and Alembic migration work.
-- [ ] Health and readiness endpoints behave correctly.
-- [ ] Lint, formatting, type checks, and baseline tests pass.
+## 1. Automated Verification Sequence
 
-## 2. Feature gate
+Every developer must run the automated verification sequence prior to opening a pull request:
 
-Every feature must have:
-- [ ] Clear user/business outcome.
-- [ ] Agreed API and data contract.
-- [ ] Authorization and input validation.
-- [ ] Loading, empty, success, and error states where relevant.
-- [ ] Tests for happy path and important failure paths.
-- [ ] Logs that help diagnose failures without exposing secrets.
-- [ ] Documentation sufficient for another developer to operate it.
-- [ ] No dead buttons, fake success, or misleading demo claims.
+```bash
+# Automated verification gate across both backend and frontend
+./scripts/verify-environment.sh
+```
 
-## 3. Commerce gate
+### Component-Level Commands (Verified in Repository)
 
-- [ ] Product and variant identity is stable.
-- [ ] Price and stock are revalidated server-side.
-- [ ] Cart quantity and availability constraints are enforced.
-- [ ] Checkout is idempotent.
-- [ ] Multi-item reservation is all-or-nothing.
-- [ ] Concurrent checkout cannot oversell.
-- [ ] Payment status is verified server-side.
-- [ ] Order history is persisted and retrievable.
-- [ ] Order item snapshots preserve purchase-time details.
+| Subsystem | Gate Check | Actual Repository Command | Passing Criterion |
+|---|---|---|---|
+| **Backend** | Linter | `cd backend && ruff check .` | 0 errors, 0 warnings |
+| **Backend** | Formatter | `cd backend && ruff format --check .` | 0 formatting discrepancies |
+| **Backend** | Unit & Route Tests | `cd backend && pytest -v` | 12/12 tests pass |
+| **Backend** | Migration Discovery | `cd backend && alembic heads` | Single linear head |
+| **Frontend** | Type Safety | `cd frontend && npm run type-check` | TypeScript exit 0 (`tsc --noEmit`) |
+| **Frontend** | Linter | `cd frontend && npm run lint` | 0 ESLint errors |
+| **Frontend** | Unit Tests | `cd frontend && npm test` | 7/7 tests pass |
+| **Frontend** | Production Build | `cd frontend && npm run build` | Next.js compilation exit 0 |
 
-## 4. Infrastructure proof gate
+---
 
-### PostgreSQL
-- [ ] Core records are persisted and can be queried.
-- [ ] Constraints and transactions protect critical invariants.
+## 2. Gate Definitions
 
-### OpenSearch
-- [ ] Search endpoint actually queries OpenSearch.
-- [ ] Approved product data is indexed.
-- [ ] Indexing failures can retry or be rebuilt.
-- [ ] Checkout never trusts search index price/stock.
+### Gate 1: Foundation Baseline (`PASSED`)
+- [x] Repository clones and builds cleanly without undocumented steps.
+- [x] Both backend and frontend run independently.
+- [x] Readiness endpoint (`/ready`) validates database connectivity and responds with HTTP 503 on failure.
+- [x] Centralized API client handles structured error envelopes and all REST verbs.
+- [x] All 19 automated foundation tests pass.
 
-### Kafka
-- [ ] An order transaction writes an outbox event.
-- [ ] Publisher sends it to Kafka.
-- [ ] A consumer receives and processes it.
-- [ ] Duplicate delivery does not duplicate side effects.
-- [ ] Failure/retry behaviour is documented.
+### Gate 2: Feature & Module Gate (Per Feature PR)
+Every feature branch PR must satisfy:
+- [ ] Explicit business outcome mapped to `TASK_BREAKDOWN.md`.
+- [ ] Conforms to schemas in `API_CONTRACTS.md` and `DATA_MODEL.md`.
+- [ ] Server-side input validation via Pydantic v2.
+- [ ] Automated tests covering both happy path and edge-case failure paths.
+- [ ] Frontend loading, empty, success, and error states handled gracefully.
+- [ ] Zero dead buttons, placeholder routes, or fake success messages.
+- [ ] Structured logging without exposing passwords, tokens, or PII.
 
-## 5. Security gate
+### Gate 3: Commerce & Concurrency Gate
+- [ ] Client prices and stock are strictly untrusted; re-verified in PostgreSQL.
+- [ ] Multi-item inventory reservations are all-or-nothing.
+- [ ] Row locks are acquired in sorted order (`ORDER BY listing_id ASC FOR UPDATE`) to prevent deadlocks.
+- [ ] Concurrent checkouts cannot violate `CHECK (on_hand_quantity >= reserved_quantity)`.
+- [ ] State-mutating endpoints enforce `Idempotency-Key` headers.
+- [ ] Expired reservations (10 min) are released cleanly by background daemon.
 
-- [ ] No secrets committed.
-- [ ] Role checks are server-side.
-- [ ] Payment callbacks are verified.
-- [ ] Uploads have size/type/content validation if enabled.
-- [ ] No arbitrary SQL or unrestricted tools exposed to AI.
-- [ ] Logs do not expose tokens, passwords, payment secrets, or private data.
+### Gate 4: Infrastructure & Eventing Gate
+- [ ] Outbox events are committed in the same database transaction as business mutations.
+- [ ] Outbox publisher uses lease fencing; zero DB locks held during Kafka network I/O.
+- [ ] OpenSearch indexing consumer uses `version_type=external_gte` to reject out-of-order events.
+- [ ] Replay of duplicate events does not duplicate side effects.
+- [ ] Live Aiven PostgreSQL, Kafka, and OpenSearch connectivity verified with actual telemetry.
 
-## 6. Demo gate
+---
 
-- [ ] Demo path is repeatable from a clean state.
-- [ ] Seed data is deterministic.
-- [ ] External dependencies and sandbox limitations are disclosed.
-- [ ] Network/service failure has a graceful and honest UI.
-- [ ] Screenshots/video backup exists.
-- [ ] A developer can explain the architecture and show real service activity.
+## 3. Release Rule
 
-## 7. Release rule
-
-A P0 failure blocks release. Optional features cannot compensate for a broken core journey or fake infrastructure integration.
-
-Do not lower a gate to make a feature appear complete. Reduce scope instead.
+A P0 failure blocks release. No optional feature (e.g. Quinn negotiation, voice shopping) may be demonstrated or merged if the core commerce journey (browse → search → cart → checkout → order confirmation) has failing quality gates.
