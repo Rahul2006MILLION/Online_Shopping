@@ -227,7 +227,8 @@ Run the automated verification script from repository root:
 
 ## 8. Next Milestone
 
-The immediate next task is **Phase 1 Contract Freeze & Core Database Migration**:
-1. Resolve the 10 outstanding decisions detailed in [PROJECT_STATUS.md](PROJECT_STATUS.md).
-2. Author Alembic migration `0002_phase1_commerce_schema.py`.
-3. Begin parallel implementation across Developer 1 (Discovery & Search) and Developer 2 (Cart, Inventory & Orders).
+The immediate next task is **Phase 1 Contract Freeze & Core Database Foundation**:
+1. Review and resolve the 10 outstanding decisions detailed in [PROJECT_STATUS.md](PROJECT_STATUS.md).
+2. Formally freeze `API_CONTRACTS.md` and `DATA_MODEL.md` (contract freeze).
+3. Author Alembic migration `0002_phase1_commerce_schema.py` **only after** formal contract approval.
+4. Begin parallel implementation across Developer 1 (Discovery & Search) and Developer 2 (Cart, Inventory & Orders).

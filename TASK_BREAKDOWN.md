@@ -1,6 +1,6 @@
 # BASKET — Engineering Task Breakdown & Role Ownership
 
-> **Milestone Status:** Phase 0 Completed (`db9d790`); Phase 1 Ready for Implementation.
+> **Milestone Status:** Phase 0 Completed (`db9d790`); Phase 1 Pre-Implementation Architecture Review.
 
 ---
 
@@ -15,10 +15,10 @@
 
 ---
 
-## 2. Phase 0 — Foundation Baseline (`COMPLETED`)
+## 2. Phase 0 — Foundation Baseline [VERIFIED IMPLEMENTATION]
 
 - [x] Create repository structure, `.gitignore`, and Git branch baseline (`integration`).
-- [x] Author all 11 foundational governance and architecture documents.
+- [x] Author foundational governance and architecture documents.
 - [x] Configure backend settings, Pydantic schemas, and structured logging.
 - [x] Implement SQLAlchemy 2.0 async engine supporting Aiven PostgreSQL SSL and SQLite testing.
 - [x] Initialize Alembic harness and verify baseline migration discovery (`0001_initial_baseline.py`).
@@ -30,13 +30,14 @@
 
 ---
 
-## 3. Phase 1 — Commerce Core Journey (`PLANNED / NEXT MILESTONE`)
+## 3. Phase 1 — Commerce Core Journey [PROPOSED ARCHITECTURE — UNDER REVIEW]
 
-### Pre-Requisite Gate (Integration Owner)
-- [ ] Formally sign off on the 10 outstanding decisions in `PROJECT_STATUS.md`.
-- [ ] Author Alembic migration `0002_phase1_commerce_schema.py`.
+### Pre-Requisite Gate (Integration Owner & Team)
+- [ ] Formally review and resolve the 10 outstanding decisions in `PROJECT_STATUS.md`.
+- [ ] Freeze `API_CONTRACTS.md` and `DATA_MODEL.md` (contract freeze).
+- [ ] **Author Alembic migration `0002_phase1_commerce_schema.py` ONLY AFTER formal contract freeze.**
 - [ ] Apply migration and verify on clean PostgreSQL and SQLite databases.
-- [ ] Add `aiokafka>=0.11.0` and `opensearch-py>=2.8.0` to `requirements.txt`.
+- [ ] Add `aiokafka>=0.11.0` and `opensearch-py>=2.8.0` to `backend/requirements.txt`.
 
 ### Developer 1: Product Discovery & Search
 - **Backend:**
@@ -45,7 +46,7 @@
   - [ ] Implement `GET /api/v1/products` and `GET /api/v1/products/{id}`.
   - [ ] Implement `backend/app/modules/search/` with OpenSearch query DSL.
   - [ ] Implement `GET /api/v1/search` with keyword query, category filter, and price facets.
-  - [ ] Implement OpenSearch consumer worker subscribing to `basket.catalogue.v1` and `basket.inventory.v1`.
+  - [ ] Implement OpenSearch consumer worker subscribing to `basket.catalogue.v1` and `basket.inventory.v1` using monotonic per-product projection versions.
 - **Frontend:**
   - [ ] Implement `frontend/features/catalogue/` (product cards, variant selector, category navigation).
   - [ ] Implement `frontend/features/search/` (search bar, filter sidebar, pagination).
@@ -56,7 +57,7 @@
   - [ ] Implement `backend/app/modules/cart/` (session-backed and user-backed carts).
   - [ ] Implement `GET /api/v1/cart`, `POST /api/v1/cart/items`, `PATCH /api/v1/cart/items/{id}`, `DELETE /api/v1/cart/items/{id}`.
   - [ ] Implement `POST /api/v1/checkout/quote` with HMAC token signing and 5-minute TTL.
-  - [ ] Implement `backend/app/modules/inventory/` with atomic sorted row-locking (`ORDER BY listing_id ASC FOR UPDATE`).
+  - [ ] Implement `backend/app/modules/inventory/` with atomic sorted row-locking (`ORDER BY listing_id ASC FOR UPDATE`) and parent-child reservation model (`inventory_reservations` + `reservation_items`).
   - [ ] Implement `POST /api/v1/checkout` creating order and atomic reservation under idempotency key.
   - [ ] Implement `POST /api/v1/orders/{id}/demo-confirm` (development mode only).
   - [ ] Implement `backend/app/events/outbox/` background publisher daemon.
@@ -68,7 +69,7 @@
 
 ---
 
-## 4. Phase 2 — System Integration & End-to-End Proof (`PLANNED`)
+## 4. Phase 2 — System Integration & End-to-End Proof [PLANNED]
 
 - [ ] Connect Frontend catalogue & search to cart drawer.
 - [ ] Wire checkout page to `/api/v1/checkout/quote` and `/api/v1/checkout`.
@@ -78,7 +79,7 @@
 
 ---
 
-## 5. Phase 3 — Sale Storm & Reliability Demonstration (`PLANNED`)
+## 5. Phase 3 — Sale Storm & Reliability Demonstration [FUTURE ACCEPTANCE TESTS — NOT YET EXECUTED]
 
 - [ ] Write Sale Storm concurrency test (`scripts/test-sale-storm.sh`).
 - [ ] Run 50 concurrent checkouts against 5 available units; verify 5 succeed, 45 fail with 409, 0 oversold.

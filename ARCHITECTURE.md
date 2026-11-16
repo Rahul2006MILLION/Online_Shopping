@@ -116,7 +116,7 @@ sequenceDiagram
 
 ---
 
-## 5. Inventory Reservation Lifecycle & Concurrency Control
+## 5. Inventory Reservation Lifecycle & Concurrency Control (Parent-Child Model)
 
 ```
                   ┌──────────────────────┐
@@ -145,7 +145,7 @@ sequenceDiagram
           └────────────────────┘   └───────────────────────────┘
 ```
 
-### Rules & State Transitions
+### Rules & State Transitions (Parent `inventory_reservations` + Child `reservation_items`)
 1. **Deadlock-Free Locking:** Multi-item checkouts sort all `listing_id`s ascending prior to issuing `SELECT ... FOR UPDATE`:
    ```sql
    SELECT listing_id, on_hand_quantity, reserved_quantity 
@@ -154,23 +154,27 @@ sequenceDiagram
    ORDER BY listing_id ASC 
    FOR UPDATE;
    ```
-2. **Atomic Reservation (`POST /checkout`):**
-   - Check `(on_hand_quantity - reserved_quantity) >= requested_quantity`.
-   - Update: `UPDATE store_inventory SET reserved_quantity = reserved_quantity + :qty WHERE listing_id = :id;`
-   - Insert reservation: `status = 'ACTIVE'`, `expires_at = NOW() + INTERVAL '10 minutes'`.
+2. **Atomic Reservation Creation (`POST /checkout`):**
+   - Check `(on_hand_quantity - reserved_quantity) >= requested_quantity` for all items.
+   - For each item, update: `UPDATE store_inventory SET reserved_quantity = reserved_quantity + :qty WHERE listing_id = :id;`
+   - Insert parent reservation: `INSERT INTO inventory_reservations (id, order_id, status, expires_at) VALUES (:res_id, :order_id, 'ACTIVE', NOW() + INTERVAL '10 minutes');`
+   - Insert child reservation items: `INSERT INTO reservation_items (id, reservation_id, listing_id, quantity) VALUES (:item_id, :res_id, :listing_id, :qty);`
 3. **Confirmation (`demo-confirm` or Payment Webhook):**
-   - Lock reservation row `WHERE order_id = :order_id FOR UPDATE`.
-   - Update stock: `UPDATE store_inventory SET reserved_quantity = reserved_quantity - :qty, on_hand_quantity = on_hand_quantity - :qty WHERE listing_id = :id;`
-   - Update reservation: `UPDATE inventory_reservations SET status = 'CONFIRMED' WHERE id = :id AND status = 'ACTIVE';` (Conditional clause guarantees no double-confirmation).
+   - Lock parent reservation row: `SELECT * FROM inventory_reservations WHERE order_id = :order_id FOR UPDATE;`
+   - Require `status = 'ACTIVE'` and `expires_at > NOW()`.
+   - For each item in `reservation_items`:
+     `UPDATE store_inventory SET reserved_quantity = reserved_quantity - :qty, on_hand_quantity = on_hand_quantity - :qty WHERE listing_id = :id;`
+   - Update parent reservation: `UPDATE inventory_reservations SET status = 'CONFIRMED', confirmed_at = NOW() WHERE id = :id AND status = 'ACTIVE';` (Conditional clause guarantees no double-confirmation).
 4. **Expiry / Release (Daemon or Cancellation):**
-   - Update stock: `UPDATE store_inventory SET reserved_quantity = reserved_quantity - :qty WHERE listing_id = :id;`
-   - Update reservation: `UPDATE inventory_reservations SET status = 'EXPIRED' WHERE id = :id AND status = 'ACTIVE';` (`on_hand_quantity` is untouched).
+   - For each item in `reservation_items`:
+     `UPDATE store_inventory SET reserved_quantity = reserved_quantity - :qty WHERE listing_id = :id;`
+   - Update parent reservation: `UPDATE inventory_reservations SET status = 'EXPIRED' WHERE id = :id AND status = 'ACTIVE';` (`on_hand_quantity` is untouched).
 
 ---
 
-## 6. OpenSearch Consumer Reliability
+## 6. OpenSearch Consumer Reliability (Monotonic Projection Versioning)
 
-Because writes to OpenSearch and Kafka offset commits cannot share a database transaction, consumer reliability relies on **idempotent external versioning**:
+Because writes to OpenSearch and Kafka offset commits cannot share a database transaction, consumer reliability relies on **idempotent external versioning using a monotonic per-product projection version** (`products.projection_version INT`). Millisecond timestamp versioning was rejected due to distributed clock drift risks.
 
 ```mermaid
 sequenceDiagram
@@ -182,11 +186,11 @@ sequenceDiagram
     K->>C: Poll batch of domain events
     loop For each event in batch
         C->>C: Construct Product Search Projection (doc_id = product_id)
-        C->>OS: PUT /basket_products/_doc/{product_id}?version_type=external_gte&version={event_version_ms}
+        C->>OS: PUT /basket_products/_doc/{product_id}?version_type=external_gte&version={event_projection_version}
         alt OpenSearch 200/201 (Success)
             OS-->>C: Document indexed
         else OpenSearch 409 (Version Conflict - Out of order / duplicate)
-            OS-->>C: 409 Conflict (Current version >= event version)
+            OS-->>C: 409 Conflict (Current projection version >= event projection version)
             C->>C: Ignore conflict (event is already superseded or replayed)
         else OpenSearch 5xx / Network Error
             C->>C: Exponential backoff (retry up to 3 times)

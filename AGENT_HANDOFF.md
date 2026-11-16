@@ -419,3 +419,36 @@ Formal handoff of the BASKET project to the incoming developer(s):
 **Reason:** Enables full operational independence for incoming developers without oral tradition or undocumented assumptions.  
 **Files/contracts affected:** All repository Markdown documentation and guides.  
 **Status:** HANDOFF DOCUMENTATION COMPLETE & COMMITTED
+
+---
+
+### [2026-11-16 19:15 IST] — Technical Lead & Documentation Owner — [HANDOFF DOCUMENTATION CONSISTENCY FIX]
+
+**Related branch / PR / task:** Handoff Documentation Consistency Fix (`docs/developer-handoff-fix`)  
+**Affected module(s):** `DATA_MODEL.md`, `PROJECT_STATUS.md`, `DEVELOPER_HANDOFF.md`, `DECISIONS.md`, `TASK_BREAKDOWN.md`, `IMPLEMENTATION_ROADMAP.md`, `ARCHITECTURE.md`, `README.md`  
+**What I am proposing or requesting:**  
+Handoff documentation consistency fix addressing the 8 review findings:
+
+1. **Standardized Proposed Inventory Schema (Parent-Child Model):**
+   - Standardized proposed reservation schema on a parent `inventory_reservations` table (storing `order_id`, `status`, `expires_at`, `confirmed_at`) with child `reservation_items` (storing `reservation_id`, `listing_id`, `quantity`).
+   - A flat reservation model is explicitly marked as NOT approved.
+2. **OpenSearch Versioning via Monotonic Per-Product Version (Pending Design):**
+   - Replaced timestamp-based event versioning with a pending design requiring a monotonic per-product projection version (`products.projection_version INT` incremented in PostgreSQL).
+   - Distributed clock drift risks of timestamp-based versioning are documented and rejected.
+3. **Explicitly Unresolved Design Items:**
+   - Quote-to-cart binding, atomic idempotency claims under concurrency, guest session retention/linking, and reservation expiry coordination are explicitly marked as **UNRESOLVED / PENDING APPROVAL** across all status and roadmap documents.
+4. **Draft Status of `DATA_MODEL.md`:**
+   - Explicitly labelled proposed DDL as an unapproved architectural draft specification undergoing review, not a finalized schema.
+5. **Removed Direct Migration Instructions:**
+   - Eliminated any instruction to author migration `0002_phase1_commerce_schema.py` directly from unapproved DDL.
+   - Enforced that migration 0002 must strictly follow formal contract freeze and approval of the 10 open design items.
+6. **Cross-Document Consistency:**
+   - Unified `PROJECT_STATUS.md`, `DEVELOPER_HANDOFF.md`, `DECISIONS.md`, `TASK_BREAKDOWN.md`, `IMPLEMENTATION_ROADMAP.md`, `ARCHITECTURE.md`, and `README.md`.
+7. **Clear Demarcation of Status:**
+   - Strictly separated `[VERIFIED IMPLEMENTATION]` (Phase 0), `[PROPOSED ARCHITECTURE — IN REVIEW]` (Phase 1), and `[FUTURE ACCEPTANCE TESTS — NOT YET EXECUTED]` (Phase E).
+8. **Live Cloud Integration Disclosure:**
+   - Aiven PostgreSQL, Kafka, and OpenSearch cloud integrations are clearly labeled as `UNVERIFIED INTEGRATION / PLANNED` with local degraded development mode active.
+
+**Reason:** Eliminates all architectural inconsistencies in the handoff documentation and ensures incoming engineers do not act on unapproved designs.  
+**Files/contracts affected:** `DATA_MODEL.md`, `PROJECT_STATUS.md`, `DEVELOPER_HANDOFF.md`, `DECISIONS.md`, `TASK_BREAKDOWN.md`, `IMPLEMENTATION_ROADMAP.md`, `ARCHITECTURE.md`, `README.md`, `AGENT_HANDOFF.md`.  
+**Status:** CONSISTENCY FIX COMPLETE & COMMITTED

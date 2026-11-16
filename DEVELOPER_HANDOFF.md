@@ -5,7 +5,7 @@
 > **Date:** 2026-11-16  
 > **Repository:** [https://github.com/Rahul2006MILLION/Online_Shopping](https://github.com/Rahul2006MILLION/Online_Shopping)  
 > **Base Branch:** `integration`  
-> **Handoff Branch:** `docs/developer-handoff`  
+> **Handoff Branch:** `docs/developer-handoff-fix`  
 
 ---
 
@@ -24,17 +24,17 @@ Traditional e-commerce platforms often decouple search and checkout from physica
 
 ---
 
-## 2. Current Repository State
+## 2. Current Repository State [VERIFIED BASELINE]
 
 ```
-Current Git Branch:        docs/developer-handoff
+Current Git Branch:        docs/developer-handoff-fix
 Parent Tracking Branch:    origin/integration
 Latest Foundation Commit:  db9d790 (Merge pull request #1 from feature/phase0-foundation)
 Foundation Test Status:    12/12 Backend tests passing, 7/7 Frontend tests passing
 Build Status:              Clean Next.js 15 production build; Ruff format & lint passing
 ```
 
-### What Has Actually Been Implemented (Phase 0)
+### What Has Actually Been Implemented (Phase 0 — Verified Implementation)
 1. **FastAPI Modular Monolith Shell (`backend/app/main.py`):**
    - Application factory with lifespan context manager.
    - Structured JSON logging (`backend/app/core/logging.py`).
@@ -62,12 +62,13 @@ Build Status:              Clean Next.js 15 production build; Ruff format & lint
    - `scripts/dev-setup.sh`: Automated local environment bootstrap.
    - `scripts/verify-environment.sh`: Automated CI/CD quality gate verifying Git, Python, Ruff, Pytest, Alembic, Node, TypeScript, and Next.js build.
 
-### What Has NOT Been Implemented (Phase 1 Scope)
+### What Has NOT Been Implemented (Phase 1 Scope — Pending Architecture Review)
 - **Domain Modules:** `backend/app/modules/` and `frontend/features/` are currently empty directories.
-- **Commerce Database Schema:** No commerce tables (`products`, `prices`, `store_inventory`, `carts`, `orders`, `inventory_reservations`, `outbox_events`) have been migrated yet.
+- **Commerce Database Schema:** No commerce tables (`products`, `prices`, `store_inventory`, `carts`, `orders`, `inventory_reservations`, `reservation_items`, `outbox_events`) have been migrated yet.
+- **Alembic Migration 0002:** Not authored. Awaiting formal sign-off on the 10 open decisions.
 - **Kafka & Outbox:** No outbox publisher daemon or Kafka consumer worker exists.
 - **OpenSearch:** No OpenSearch indexing sync or search endpoints exist.
-- **Live Cloud Connectivity:** The codebase has not been run against live Aiven cloud credentials.
+- **Live Cloud Connectivity:** The codebase has not been run against live Aiven cloud credentials (running in local degraded mode).
 
 ---
 
@@ -85,13 +86,13 @@ Build Status:              Clean Next.js 15 production build; Ruff format & lint
 | **Framework (Frontend)** | Next.js (App Router) | 15.5.x | `frontend/next.config.ts` |
 | **UI Library** | React | 19.x | `frontend/package.json` |
 | **Styling** | Tailwind CSS | 3.4.x | `frontend/tailwind.config.ts` |
-| **Database** | Aiven PostgreSQL | 16.x | Configured in `infra/.env.example` |
-| **Event Bus** | Aiven Apache Kafka | 3.x | Configured in `infra/.env.example` |
-| **Search Engine** | Aiven OpenSearch | 2.x | Configured in `infra/.env.example` |
+| **Database** | Aiven PostgreSQL (Planned) | 16.x | Configured in `infra/.env.example` |
+| **Event Bus** | Aiven Apache Kafka (Planned) | 3.x | Configured in `infra/.env.example` |
+| **Search Engine** | Aiven OpenSearch (Planned) | 2.x | Configured in `infra/.env.example` |
 
 ---
 
-## 4. Architectural Principles & Invariants
+## 4. Architectural Principles & Invariants [PROPOSED ARCHITECTURE]
 
 Incoming developers **must adhere** to the following architecture invariants:
 
@@ -106,7 +107,8 @@ Incoming developers **must adhere** to the following architecture invariants:
    - The application uses the **Transactional Outbox** pattern.
    - Business mutations (e.g. order creation, inventory reservation) write domain events to the `outbox_events` table in the *same* PostgreSQL transaction.
    - A separate background daemon reads unpublished outbox rows and publishes them to Kafka with lease fencing.
-4. **Atomic Multi-Item Inventory Reservations:**
+4. **Parent-Child Atomic Multi-Item Inventory Reservations:**
+   - The proposed reservation model standardizes on a parent `inventory_reservations` record with child `reservation_items` records. (A flat reservation model is rejected).
    - Checkout reservations are all-or-nothing across all cart items.
    - Item locks must be acquired in **sorted order** (`ORDER BY listing_id ASC FOR UPDATE`) to prevent deadlocks.
    - Database check constraint `CHECK (on_hand_quantity >= reserved_quantity AND reserved_quantity >= 0)` guarantees no overselling.
@@ -145,7 +147,7 @@ cp .env.example .env
 ```bash
 cd frontend
 
-# Install npm packages
+# Install Node dependencies
 npm install
 
 # Configure environment variables
@@ -175,14 +177,6 @@ Before submitting any pull request or committing changes, run:
 ```bash
 ./scripts/verify-environment.sh
 ```
-This runs:
-- Git branch and remote sanity checks
-- Python syntax, Ruff linting, and formatting checks
-- Pytest backend test suite (12 tests)
-- Alembic migration discovery check
-- Node.js version check
-- TypeScript strict compiler check (`tsc --noEmit`)
-- Next.js production build (`next build`)
 
 ---
 
@@ -218,15 +212,15 @@ To make immediate, safe progress, execute these tasks in order:
 Clone the repo and run `./scripts/verify-environment.sh` to confirm your local machine satisfies all prerequisites.
 
 ### Task 2: Review and Resolve the 10 Outstanding Decisions
-Read [Section 8 of this document](#8-the-10-open-decisions-requiring-coordination) and [PROJECT_STATUS.md](PROJECT_STATUS.md). Agree with your team lead or co-developer on:
-1. The exact reservation schema (`inventory_reservations` single-table vs parent/child).
-2. The canonical naming of `store_listings`.
-3. The guest checkout session lifecycle.
+Read [Section 8 of this document](#8-the-10-open-decisions-requiring-coordination) and [PROJECT_STATUS.md](PROJECT_STATUS.md). Formally review and resolve the 10 open design decisions with your team lead or co-developer.
 
-### Task 3: Author the Core Alembic Migration
-Author the Phase 1 migration `0002_phase1_commerce_schema.py` under the coordination of the Integration Owner. Apply it locally to SQLite or Aiven PostgreSQL to create the initial tables.
+### Task 3: Contract Freeze
+Once decisions are resolved, freeze `API_CONTRACTS.md` and `DATA_MODEL.md`.
 
-### Task 4: Implement the Minimal Vertical Slice
+### Task 4: Author the Core Alembic Migration (ONLY AFTER Contract Freeze)
+**DO NOT author migration 0002 directly from unapproved draft DDL.** Only after formal contract freeze, have the Integration Owner author `0002_phase1_commerce_schema.py` in `backend/alembic/versions/`. Test migration upgrade and downgrade on clean PostgreSQL and SQLite.
+
+### Task 5: Implement the Minimal Vertical Slice
 1. Seed 5 products with listings, inventory, and prices.
 2. Implement `GET /api/v1/products` and `GET /api/v1/products/{id}`.
 3. Wire the frontend catalogue page to render these products.
@@ -238,16 +232,16 @@ Author the Phase 1 migration `0002_phase1_commerce_schema.py` under the coordina
 
 **DO NOT CHANGE OR IMPLEMENT THESE WITHOUT FORMAL SIGN-OFF:**
 
-1. **Reservation Model:** Choose between a flat `inventory_reservations` table (1 row per item reservation) vs parent `inventory_reservations` + `reservation_items`. Recommendation: Flat table with `(order_id, listing_id, quantity)` for simpler row locking.
-2. **Order & Reservation Circular FK:** Ensure `orders` is inserted first with `status = 'PENDING_PAYMENT'`, followed by child reservation rows referencing `orders.id`.
-3. **OpenSearch Versioning:** Standardize on millisecond event timestamps (`occurred_at_ms`) as external version numbers for `version_type=external_gte`.
-4. **Concurrent Idempotency Handling:** Catch database unique constraint collisions on `idempotency_records` during checkout and return `409 Conflict (REQUEST_IN_PROGRESS)`.
-5. **Quote Binding:** Decide whether `POST /checkout/quote` signs an immutable item snapshot or explicitly references `cart_id` and `cart_version`.
-6. **Guest Session Retention:** Define a TTL policy (e.g. 30 days) and account linking workflow for guest orders.
-7. **Reservation Expiry Worker:** Ensure the expiry daemon atomically transitions expired reservations, replenishes `store_inventory.reserved_quantity`, sets `orders.status = 'CANCELLED'`, and emits `order.cancelled`.
-8. **Outbox Schema Columns:** Include explicit `topic VARCHAR(100)` and `partition_key VARCHAR(255)` columns in `outbox_events`.
-9. **DLQ Policy:** Specify dead-letter routing to `basket.<domain>.dlq`, consumer offset committing, and the reindex reconciliation CLI.
-10. **Listing Entity Naming:** Enforce `store_listings` consistently and eliminate references to `retailer_listings`.
+1. **Reservation Model (Parent-Child Standardized in Proposal):** The proposal standardizes on parent `inventory_reservations` + child `reservation_items` table. A flat reservation model is **NOT approved**.
+2. **Order & Reservation Circular FK:** Proposal reconciles this by inserting `orders` with `status = 'PENDING_PAYMENT'` first, followed by child `inventory_reservations` and `reservation_items`.
+3. **OpenSearch Versioning (PENDING DESIGN — MONOTONIC VERSION REQUIRED):** External timestamp-based versioning is **REJECTED** due to distributed clock drift. The pending design requires a monotonic per-product projection version (`products.projection_version INT` incremented in PostgreSQL) passed in domain events.
+4. **Concurrent Idempotency Handling (EXPLICITLY UNRESOLVED):** Requires formal agreement on catching database unique constraint collisions on `idempotency_records` vs row-level locking.
+5. **Quote Binding to Cart (EXPLICITLY UNRESOLVED):** Requires formal decision on whether quotes bind to `(cart_id, cart_version)` or to an immutable items snapshot.
+6. **Guest Session Retention (EXPLICITLY UNRESOLVED):** Requires formal agreement on TTL cleanup policy and historical order linking upon user registration.
+7. **Reservation Expiry Coordination (EXPLICITLY UNRESOLVED):** Requires formal agreement on the coordination mechanism for the expiry daemon to sweep reservations, replenish `store_inventory.reserved_quantity`, and cancel `orders`.
+8. **Outbox Schema Columns (PROPOSED):** Explicit `topic VARCHAR(100)` and `partition_key VARCHAR(255)` columns proposed in draft DDL; pending review.
+9. **Dead Letter Queue Policy (EXPLICITLY UNRESOLVED):** Requires agreement on consumer offset committing upon DLQ dispatch and manual replay tooling.
+10. **Listing Entity Naming (STANDARDIZED IN PROPOSAL):** Standardized on `store_listings` across all tables, models, and contracts.
 
 ---
 
@@ -259,4 +253,5 @@ Author the Phase 1 migration `0002_phase1_commerce_schema.py` under the coordina
 - **Do NOT** commit `.env` files or hardcode credentials into the repository.
 - **Do NOT** fabricate payment success or simulate payment gateway webhooks in production mode.
 - **Do NOT** alter existing Alembic migration `0001_initial_baseline.py`.
+- **Do NOT** author migration `0002_phase1_commerce_schema.py` until all 10 open decisions are approved.
 - **Do NOT** force-push to `integration` or `main`.

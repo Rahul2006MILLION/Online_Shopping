@@ -1,24 +1,24 @@
 # BASKET — Data Model, Schemas and Invariants
 
-> **Document Status:** Authoritative Data Architecture  
+> **Document Status:** Architectural Proposal / Draft Specification (Subject to Contract Freeze)  
 > **Last Updated:** 2026-11-16  
-> **Applied Migration Status:** Baseline marker `0001_initial_baseline` applied; Phase 1 commerce tables pending.  
+> **Applied Migration Status:** Baseline marker `0001_initial_baseline` applied; Phase 1 commerce tables NOT applied.  
 
 ---
 
 ## 1. Actual vs Proposed Database State
 
-### Actual Repository State (Phase 0)
+### Actual Repository State (Phase 0 — Verified Baseline)
 - **Alembic Head:** `0001_initial_baseline.py`
-- **Tables Applied:** None (baseline marker migration contains `pass`).
+- **Tables Applied in Database:** None (baseline marker migration contains `pass`).
 - **Engines Verified:** PostgreSQL engine lifecycle with SSL; SQLite in-memory test harness with `StaticPool`.
 
-### Proposed Schema (Phase 1 Target)
-The following tables are planned for authoring in `0002_phase1_commerce_schema.py`. **Do not represent these as applied migrations until the Alembic revision is created and merged.**
+### Proposed Schema Specification [UNAPPROVED ARCHITECTURAL DRAFT]
+The following DDL represents an architectural proposal undergoing team review. **It is NOT a finalized schema and MUST NOT be used to generate an Alembic migration directly.** Authoring migration `0002_phase1_commerce_schema.py` is blocked until all 10 open design decisions are formally approved and contracts are frozen.
 
 ---
 
-## 2. Reconciled Relational Schema (Phase 1 Target)
+## 2. Proposed Relational Schema (Draft Specification — Under Review)
 
 ```text
        ┌──────────────┐             ┌──────────────┐
@@ -32,15 +32,19 @@ The following tables are planned for authoring in `0002_phase1_commerce_schema.p
                      │    orders     │◄────────────┐
                      └───┬───────┬───┘             │
                          │       │                 │
-              1..*       │       │ 1..*            │ 1
+              1..*       │       │ 1               │ 1
         ┌────────────────┘       └─────────┐       │
         ▼                                  ▼       │
  ┌─────────────┐                    ┌──────────────────────┐
  │ order_items │                    │inventory_reservations│
  └──────┬──────┘                    └──────────┬───────────┘
-        │                                      │
-        │ references                           │ references
-        ▼                                      ▼
+        │                                      │ 1
+        │                                      ▼ 1..*
+        │                               ┌─────────────────┐
+        │                               │reservation_items│
+        │                               └────────┬────────┘
+        │ references                             │ references
+        ▼                                        ▼
  ┌─────────────────────────────────────────────────────────┐
  │                     store_listings                      │
  └────────────────────────────┬────────────────────────────┘
@@ -112,6 +116,7 @@ CREATE TABLE products (
     slug VARCHAR(255) NOT NULL UNIQUE,
     brand VARCHAR(100) NOT NULL,
     description TEXT NULL,
+    projection_version INT NOT NULL DEFAULT 1, -- Monotonic version for search projection
     is_approved BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -159,7 +164,7 @@ CREATE TABLE store_inventory (
 );
 ```
 
-### 2.4 Carts, Orders & Reservations
+### 2.4 Carts, Orders & Reservations (Parent-Child Reservation Model)
 ```sql
 CREATE TABLE carts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -210,16 +215,25 @@ CREATE TABLE order_items (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Parent Reservation Table
 CREATE TABLE inventory_reservations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    listing_id UUID NOT NULL REFERENCES store_listings(id) ON DELETE RESTRICT,
-    quantity INT NOT NULL CHECK (quantity > 0),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, CONFIRMED, EXPIRED, RELEASED
     expires_at TIMESTAMPTZ NOT NULL,
     confirmed_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Child Reservation Items Table
+CREATE TABLE reservation_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reservation_id UUID NOT NULL REFERENCES inventory_reservations(id) ON DELETE CASCADE,
+    listing_id UUID NOT NULL REFERENCES store_listings(id) ON DELETE RESTRICT,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_reservation_listing UNIQUE (reservation_id, listing_id)
 );
 ```
 
@@ -257,23 +271,26 @@ CREATE TABLE idempotency_records (
 
 ---
 
-## 3. The 10 Outstanding Decisions & Resolution Path
+## 3. The 10 Outstanding Decisions & Resolution Status
 
-1. **Reservation Model (Flat vs Nested):** Standardized on flat `inventory_reservations` where each row represents an item reservation tied to `order_id`.
-2. **Circular Foreign Key:** `orders` is inserted first with status `PENDING_PAYMENT`, followed by child `inventory_reservations` records referencing `orders.id`.
-3. **Search Versioning:** OpenSearch external versioning must use millisecond timestamps (`occurred_at_ms`) across both catalogue and inventory threshold events.
-4. **Concurrent Idempotency:** Catch unique key collisions on `idempotency_records` and return `409 Conflict (REQUEST_IN_PROGRESS)`.
-5. **Quote Binding:** Quote token contains `items_hash` and item array; server re-verifies price and stock from PostgreSQL during checkout.
-6. **Guest Retention:** 30-day TTL on `guest_sessions`; account linking on future registration matching email.
-7. **Atomic Expiry Worker:** Reservation expiry daemon updates `reserved_quantity`, sets `inventory_reservations.status = 'EXPIRED'`, and updates `orders.status = 'CANCELLED'`.
-8. **Outbox Schema:** Columns `topic` and `partition_key` are explicitly included.
-9. **DLQ Policy:** Max 3 retries before routing to `basket.<domain>.dlq` with Kafka offset commit.
-10. **Canonical Naming:** Standardized on `store_listings` across all tables, models, and contracts.
+The following items are **EXPLICITLY UNRESOLVED** and require formal team review and sign-off:
+
+1. **Reservation Model (Parent-Child Standardized in Proposal):** Standardized on parent `inventory_reservations` + child `reservation_items` table. A flat reservation model is rejected.
+2. **Circular Order / Reservation Foreign Key:** Resolved in proposal: `orders` is inserted first with status `PENDING_PAYMENT`, followed by child `inventory_reservations` and `reservation_items`.
+3. **Search Projection Versioning (PENDING DESIGN):** Monotonic per-product projection version (`products.projection_version INT` incremented in PostgreSQL) replaces timestamp-based versioning. External timestamp versioning was rejected due to clock drift risks.
+4. **Concurrent Idempotency Claims (UNRESOLVED):** Requires formal agreement on whether concurrent checkout attempts catch unique constraint violations or use row locking.
+5. **Quote-to-Cart Binding (UNRESOLVED):** Requires formal decision on whether quotes bind to `(cart_id, cart_version)` or to an immutable items snapshot.
+6. **Guest Session Retention & Historical Linking (UNRESOLVED):** Requires formal agreement on TTL cleanup and account linking workflow upon customer registration.
+7. **Atomic Reservation Expiry & Order Cancellation (UNRESOLVED):** Requires formal agreement on whether a single transaction sweeps reservations, restores `store_inventory.reserved_quantity`, and cancels `orders`.
+8. **Outbox Schema Completeness (PROPOSED):** Explicit `topic` and `partition_key` columns included in draft DDL; pending review.
+9. **Dead Letter Queue (DLQ) Policy (UNRESOLVED):** Requires agreement on consumer offset commit upon DLQ dispatch and manual replay tooling.
+10. **Canonical Listing Naming (STANDARDIZED IN PROPOSAL):** Standardized on `store_listings` across all tables, models, and contracts.
 
 ---
 
 ## 4. Migration Discipline
 
-- Authoring must be coordinated by the Integration Owner.
-- Never edit an existing migration script.
-- Test both `upgrade` and `downgrade` locally before submitting a PR.
+- **DO NOT create `0002_phase1_commerce_schema.py` directly from this document.**
+- Migration generation is permitted **only after** all 10 items above have received formal approval and contracts are frozen.
+- One designated migration owner at a time.
+- Never edit an applied migration. Test both `upgrade` and `downgrade` locally before submitting a PR.
