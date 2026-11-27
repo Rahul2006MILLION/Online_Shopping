@@ -76,21 +76,24 @@ async def get_active_auction(
 async def live_auction(
     auction_id: uuid.UUID,
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_customer)],
     max_seconds: Annotated[int, Query(ge=1, le=120)] = 100,
 ):
     """JSON snapshot of the live auction, or a Server-Sent Events stream
     (`Accept: text/event-stream`) pushing a snapshot every 2 seconds until the
     auction closes."""
-    svc = AuctionService(db)
-    a = await svc.get_own(auction_id, user.id)
-    if "text/event-stream" not in request.headers.get("accept", ""):
-        return await svc.view(a, include_bids=True)
-
     from app.core.database import get_session_factory
 
     sf = get_session_factory()
+    if sf is None:
+        raise RuntimeError("Database is not configured.")
+
+    async with sf() as db:
+        svc = AuctionService(db)
+        a = await svc.get_own(auction_id, user.id)
+        if "text/event-stream" not in request.headers.get("accept", ""):
+            return await svc.view(a, include_bids=True)
+
     user_id = user.id
 
     async def events() -> AsyncGenerator[bytes, None]:

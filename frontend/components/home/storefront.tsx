@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Headset, RotateCcw, ShieldCheck, Truck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Headset, RotateCcw, ShieldCheck, Truck } from "lucide-react";
 import { ProductCard } from "@/components/catalogue/product-card";
 import { ProductImage } from "@/components/catalogue/product-image";
 import { Reveal } from "@/components/motion/reveal";
@@ -100,91 +101,7 @@ export function SectionHead({
 
 /* ------------------------------------------------------------------ hero */
 
-/** Hero composition slots. A slot is shown only when the catalogue has a matching product. */
-const HERO_SLOTS = {
-  headphones: /headphone|airpods|earbud|earphone|neckband/i,
-  phone: /\biphone|galaxy s|smartphone|pixel \d|oneplus|\bphone\b/i,
-  sneakers: /sneaker|running shoe|\bshoes?\b|trainer/i,
-  perfume: /perfume|fragrance|eau de|parfum|cologne|attar/i,
-  watch: /smartwatch|\bwatch\b|fitness band/i,
-} as const;
-type HeroSlot = keyof typeof HERO_SLOTS;
-
-function heroCandidates(products: ProductSummary[]) {
-  const out = {} as Record<HeroSlot, ProductSummary[]>;
-  const used = new Set<string>();
-  (Object.keys(HERO_SLOTS) as HeroSlot[]).forEach((slot) => {
-    out[slot] = products.filter((p) => p.primary_image && !used.has(p.id) && HERO_SLOTS[slot].test(p.name));
-    out[slot].forEach((p) => used.add(p.id));
-  });
-  return out;
-}
-
-function LeafCluster({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 160 220" aria-hidden className={className}>
-      <path d="M120 220 C 112 160, 96 110, 60 60" stroke="#2F7A3B" strokeWidth="3" fill="none" />
-      <path d="M60 60 C 30 50, 12 22, 18 2 C 48 10, 70 32, 60 60 Z" fill="#3E9443" />
-      <path d="M86 108 C 52 112, 24 92, 14 66 C 46 62, 76 78, 86 108 Z" fill="#2F7A3B" />
-      <path d="M78 92 C 86 60, 112 40, 140 36 C 140 66, 112 92, 78 92 Z" fill="#4FA84D" />
-      <path d="M104 160 C 70 170, 40 158, 24 134 C 56 124, 90 132, 104 160 Z" fill="#3E9443" />
-      <path d="M100 140 C 110 108, 136 92, 158 92 C 156 122, 132 142, 100 140 Z" fill="#2F7A3B" />
-    </svg>
-  );
-}
-
-/** Potted plant at the right of the composition (as in the reference). */
-function PottedPlant({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 200 300" aria-hidden className={className}>
-      <path d="M100 190 C 96 140, 80 96, 40 60" stroke="#2F7A3B" strokeWidth="4" fill="none" />
-      <path d="M100 190 C 104 130, 128 84, 170 54" stroke="#2F7A3B" strokeWidth="4" fill="none" />
-      <path d="M40 60 C 10 50, -2 20, 8 0 C 40 10, 58 36, 40 60 Z" fill="#3E9443" />
-      <path d="M170 54 C 196 40, 204 12, 194 -4 C 164 8, 152 32, 170 54 Z" fill="#4FA84D" />
-      <path d="M70 120 C 34 124, 8 104, 0 78 C 34 74, 62 92, 70 120 Z" fill="#2F7A3B" />
-      <path d="M128 110 C 150 80, 180 72, 200 76 C 194 106, 164 120, 128 110 Z" fill="#3E9443" />
-      <path d="M96 150 C 70 140, 58 112, 62 92 C 88 100, 102 124, 96 150 Z" fill="#4FA84D" />
-      <path d="M108 160 C 130 146, 156 146, 172 156 C 156 176, 128 178, 108 160 Z" fill="#2F7A3B" />
-      <path d="M56 190 H144 L134 292 Q 100 302 66 292 Z" fill="#ECE8E1" />
-      <path d="M56 190 H144 L142 210 H58 Z" fill="#DDD8CF" />
-    </svg>
-  );
-}
-
-/** White cylindrical podium. */
-function Podium({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 400 110" preserveAspectRatio="none" aria-hidden className={className}>
-      <defs>
-        <linearGradient id="podium-side" x1="0" x2="1">
-          <stop offset="0" stopColor="#E6E1D8" />
-          <stop offset="0.45" stopColor="#FBFAF7" />
-          <stop offset="1" stopColor="#E2DDD4" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="200" cy="96" rx="196" ry="12" fill="rgba(8,8,8,0.10)" />
-      <path d="M2 34 V84 A198 22 0 0 0 398 84 V34 Z" fill="url(#podium-side)" />
-      <ellipse cx="200" cy="34" rx="198" ry="30" fill="#FFFFFF" />
-    </svg>
-  );
-}
-
-function HeroPiece({ p, className, shape, sizes, eager = false }: { p?: ProductSummary; className: string; shape: string; sizes: string; eager?: boolean }) {
-  if (!p) return null;
-  return (
-    <Link
-      key={p.id}
-      href={`/products/${p.slug}`}
-      aria-label={p.name}
-      className={`group absolute block animate-fade-in overflow-hidden bg-white shadow-[0_22px_40px_-22px_rgba(8,8,8,0.55)] ring-[5px] ring-white transition-transform duration-slow ease-out hover:-translate-y-1 ${shape} ${className}`}
-    >
-      <ProductImage src={p.primary_image} alt={p.name} eager={eager} sizes={sizes} className="transition-transform duration-slow ease-out group-hover:scale-[1.06]" />
-    </Link>
-  );
-}
-
 export function StorefrontHero({
-  products,
   retailers,
   stats,
 }: {
@@ -193,16 +110,7 @@ export function StorefrontHero({
   stats: { products: number; stores: number } | null;
 }) {
   const { t, number } = useI18n();
-  const [look, setLook] = useState(0);
-  const cands = products ? heroCandidates(products) : null;
-  const looks = cands ? Math.max(1, ...Object.values(cands).map((c) => c.length)) : 1;
-  const at = (slot: HeroSlot) => {
-    const c = cands?.[slot] ?? [];
-    return c.length ? c[look % c.length] : undefined;
-  };
   const faces = (retailers ?? []).filter((r) => r.logo_url).slice(0, 3);
-  const arrow =
-    "press flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-ink ring-1 ring-ink/25 hover:bg-white hover:ring-ink/50";
 
   return (
     <section className="relative overflow-hidden" aria-labelledby="hero-title">
@@ -269,30 +177,19 @@ export function StorefrontHero({
           </Reveal>
         </div>
 
-        {/* Product composition: real catalogue products on a podium in front of a yellow disc */}
-        <Reveal delay={60} className="relative mx-auto aspect-[1.2] w-full max-w-[26rem] sm:max-w-[38rem] lg:mr-[-1rem] lg:max-w-none">
-          <span aria-hidden className="absolute right-[2%] top-[-3%] aspect-square w-[80%] rounded-full bg-brand-yellow" />
-          <span aria-hidden className="absolute right-[24%] top-[6%] aspect-square w-[44%] rounded-full bg-[#FFDA4D]" />
-          <LeafCluster className="absolute bottom-[22%] left-[-3%] h-[42%] w-auto -scale-x-100" />
-          <PottedPlant className="absolute bottom-[8%] right-[-6%] h-[70%] w-auto" />
-          <Podium className="absolute bottom-[1%] left-[4%] h-[22%] w-[84%]" />
-
-          <HeroPiece p={at("phone")} shape="rounded-[1.7rem]" className="bottom-[22%] left-[42%] z-[1] h-[66%] w-[22%]" sizes="(min-width: 1024px) 12vw, 22vw" eager />
-          <HeroPiece p={at("headphones")} shape="rounded-full" className="bottom-[15%] left-[5%] z-[2] aspect-square w-[40%]" sizes="(min-width: 1024px) 22vw, 40vw" eager />
-          <HeroPiece p={at("perfume")} shape="rounded-[1.2rem]" className="bottom-[15%] left-[64%] z-[2] aspect-[0.62] w-[14%]" sizes="(min-width: 1024px) 8vw, 15vw" />
-          <HeroPiece p={at("watch")} shape="rounded-[1.4rem]" className="bottom-[14%] right-[6%] z-[2] aspect-square w-[19%]" sizes="(min-width: 1024px) 11vw, 20vw" />
-          <HeroPiece p={at("sneakers")} shape="rounded-[1.6rem]" className="bottom-[4%] left-[24%] z-[3] aspect-[1.6] w-[44%]" sizes="(min-width: 1024px) 24vw, 45vw" eager />
-
-          {looks > 1 && (
-            <div className="absolute bottom-[2%] right-[4%] z-[4] flex gap-2">
-              <button type="button" className={arrow} onClick={() => setLook((l) => (l - 1 + looks) % looks)} aria-label={t("home.v2.heroPrev")}>
-                <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
-              </button>
-              <button type="button" className={arrow} onClick={() => setLook((l) => (l + 1) % looks)} aria-label={t("home.v2.heroNext")}>
-                <ChevronRight className="h-4 w-4 rtl:rotate-180" />
-              </button>
-            </div>
-          )}
+        {/* Product composition artwork (headphones, phone, sneaker, perfume, watch on a podium) */}
+        <Reveal delay={60} className="relative mx-auto w-full max-w-[34rem] sm:max-w-[44rem] lg:absolute lg:bottom-0 lg:right-0 lg:mx-0 lg:w-[63%] lg:max-w-none">
+          <Link href="/products?sort_by=newest" className="block">
+            <Image
+              src="/brand/hero-composition.webp"
+              alt={t("home.v2.heroArtAlt")}
+              width={1728}
+              height={762}
+              priority
+              sizes="(min-width: 1024px) 63vw, 100vw"
+              className="h-auto w-full select-none [-webkit-mask-composite:source-in] [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,#000_14%),linear-gradient(to_bottom,transparent,#000_12%)]"
+            />
+          </Link>
         </Reveal>
       </div>
     </section>

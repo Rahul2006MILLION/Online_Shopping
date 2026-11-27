@@ -1,0 +1,13 @@
+# Keep secrets, local environments and generated files out of the image.
+.env
+*.env
+.dev_credentials.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+basket_backend.egg-info/
+media/
+media_private/
+tests/

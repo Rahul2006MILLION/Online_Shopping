@@ -138,6 +138,30 @@ export class ApiClientError extends Error {
   }
 }
 
+/**
+ * Hosted demo backends (e.g. Render's free plan) sleep when idle and need up to a
+ * minute to start. Reads that fail with these statuses are retried with backoff
+ * instead of leaving pages empty. Status 0 is a network failure.
+ */
+export const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([0, 502, 503, 504]);
+export const WAKE_RETRY_DELAYS_MS: readonly number[] = [1500, 3000, 5000, 8000, 12000, 15000, 15000, 15000, 15000, 15000];
+/** A read slower than this is reported as "server waking up". */
+export const SLOW_REQUEST_MS = 4000;
+export const BACKEND_WAKING_EVENT = "basket:backend-waking";
+export const BACKEND_READY_EVENT = "basket:backend-ready";
+
+export function isTransientFailure(err: unknown): boolean {
+  return err instanceof ApiClientError && TRANSIENT_STATUSES.has(err.status);
+}
+
+function emitBackendEvent(name: string): void {
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+    window.dispatchEvent(new CustomEvent(name));
+  }
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`(^|;\\s*)(${name})=([^;]*)`));
@@ -291,8 +315,38 @@ class ApiClient {
     return this.refreshPromise;
   }
 
+  /** Backoff schedule for reads while the backend wakes; overridable in tests. */
+  retryDelays: readonly number[] = WAKE_RETRY_DELAYS_MS;
+
   public async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: "GET" });
+    // Server-side rendering and tests fail fast; only the browser waits for a
+    // sleeping backend.
+    if (typeof window === "undefined") {
+      return this.request<T>(endpoint, { ...options, method: "GET" });
+    }
+    let waking = false;
+    const slowTimer = setTimeout(() => {
+      waking = true;
+      emitBackendEvent(BACKEND_WAKING_EVENT);
+    }, SLOW_REQUEST_MS);
+    try {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const result = await this.request<T>(endpoint, { ...options, method: "GET" });
+          return result;
+        } catch (err) {
+          if (!isTransientFailure(err) || attempt >= this.retryDelays.length) throw err;
+          if (!waking) {
+            waking = true;
+            emitBackendEvent(BACKEND_WAKING_EVENT);
+          }
+          await sleep(this.retryDelays[attempt]);
+        }
+      }
+    } finally {
+      clearTimeout(slowTimer);
+      if (waking) emitBackendEvent(BACKEND_READY_EVENT);
+    }
   }
 
   public async post<T>(

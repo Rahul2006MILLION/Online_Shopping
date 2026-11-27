@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth/auth-context";
 import { apiClient } from "@/lib/api/client";
+import { useI18n } from "@/lib/i18n/i18n-context";
 import type { OrderListItem, OrderStatus } from "@/types/index";
 import { useLiveUpdates } from "@/lib/realtime";
 
@@ -60,6 +61,7 @@ function getStatusBadge(status: OrderStatus) {
 export default function OrdersPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { t } = useI18n();
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -162,17 +164,17 @@ export default function OrdersPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
             <Package className="h-6 w-6 text-emerald-600" />
-            My Orders
+            {t("orders.title")}
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            View orders, live tracking progress, post-purchase cancellations, and returns.
+            {t("orders.subtitle")}
           </p>
         </div>
 
         {isAuthenticated && (
           <Link href="/products">
             <Button size="sm" className="bg-brand-yellow hover:bg-brand-yellow-dark text-ink text-xs gap-1.5 shadow-xs">
-              Continue Shopping
+              {t("orders.continueShopping")}
               <ArrowRight className="h-3.5 w-3.5" />
             </Button>
           </Link>
@@ -235,7 +237,7 @@ export default function OrdersPage() {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search by order number or product name..."
+              placeholder={t("orders.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9 text-xs"
@@ -251,16 +253,16 @@ export default function OrdersPage() {
               }}
               className="h-9 text-xs px-3 rounded-md border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
             >
-              <option value="">All Statuses</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="PROCESSING">Processing</option>
-              <option value="PACKED">Packed</option>
-              <option value="SHIPPED">Shipped</option>
-              <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
-              <option value="DELIVERED">Delivered</option>
-              <option value="CANCELLED">Cancelled</option>
-              <option value="RETURNED">Returned</option>
-              <option value="PENDING_PAYMENT">Payment Pending</option>
+              <option value="">{t("orders.allStatuses")}</option>
+              <option value="CONFIRMED">{t("orders.statusConfirmed")}</option>
+              <option value="PROCESSING">{t("orders.statusProcessing")}</option>
+              <option value="PACKED">{t("orders.statusProcessing")}</option>
+              <option value="SHIPPED">{t("orders.statusShipped")}</option>
+              <option value="OUT_FOR_DELIVERY">{t("orders.statusOutForDelivery")}</option>
+              <option value="DELIVERED">{t("orders.statusDelivered")}</option>
+              <option value="CANCELLED">{t("orders.statusCancelled")}</option>
+              <option value="RETURNED">{t("orders.statusReturned")}</option>
+              <option value="PENDING_PAYMENT">{t("orders.statusPending")}</option>
             </select>
 
             <Input
@@ -322,14 +324,14 @@ export default function OrdersPage() {
           <CardContent className="space-y-3">
             <Package className="h-12 w-12 text-muted-foreground mx-auto stroke-1" />
             <h3 className="text-base font-semibold text-foreground">
-              {!isAuthenticated ? "Sign in to view your orders" : "No orders found"}
+              {!isAuthenticated ? "Sign in to view your orders" : t("orders.emptyTitle")}
             </h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               {!isAuthenticated
                 ? "Sign in to access your complete purchase history, or enter your Order Number and Access Token above to look up an order placed as a guest."
                 : statusFilter || searchQuery || fromDate || toDate
                 ? "No orders match your filter criteria. Try clearing filters to see all purchases."
-                : "You haven't placed any orders yet. Discover quality products across electronics, fashion, and groceries."}
+                : t("orders.emptySubtitle")}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
               {!isAuthenticated ? (
@@ -341,14 +343,14 @@ export default function OrdersPage() {
                   </Link>
                   <Link href="/products">
                     <Button size="sm" variant="outline" className="text-xs">
-                      Start Shopping
+                      {t("orders.startShopping")}
                     </Button>
                   </Link>
                 </>
               ) : (
                 <Link href="/products">
                   <Button size="sm" className="bg-brand-yellow hover:bg-brand-yellow-dark text-ink text-xs">
-                    Start Shopping
+                    {t("orders.startShopping")}
                   </Button>
                 </Link>
               )}
@@ -403,7 +405,7 @@ export default function OrdersPage() {
                 <div className="flex items-center gap-2.5 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-muted">
                   <Link href={`/orders/${o.id}`}>
                     <Button variant="outline" size="sm" className="text-xs h-9">
-                      View Details
+                      {t("orders.viewDetails")}
                     </Button>
                   </Link>
 
@@ -413,7 +415,7 @@ export default function OrdersPage() {
                       className="bg-brand-yellow hover:bg-brand-yellow-dark text-ink text-xs h-9 gap-1.5 shadow-xs"
                     >
                       <Truck className="h-3.5 w-3.5" />
-                      Track
+                      {t("orders.track")}
                     </Button>
                   </Link>
                 </div>

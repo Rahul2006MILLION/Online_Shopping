@@ -193,3 +193,71 @@ test("ApiClient methods and error handling", async (t) => {
     assert.equal(product.slug, "sample-product");
   });
 });
+
+test("get() waits for a sleeping backend in the browser", async (t) => {
+  const { isTransientFailure, BACKEND_WAKING_EVENT, BACKEND_READY_EVENT } = await import("./client.ts");
+  const originalFetch = globalThis.fetch;
+  const g = globalThis as unknown as { window?: EventTarget };
+  const originalWindow = g.window;
+  const originalDelays = apiClient.retryDelays;
+  const events: string[] = [];
+  const fakeWindow = new EventTarget();
+  fakeWindow.addEventListener(BACKEND_WAKING_EVENT, () => events.push("waking"));
+  fakeWindow.addEventListener(BACKEND_READY_EVENT, () => events.push("ready"));
+
+  t.beforeEach(() => {
+    g.window = fakeWindow;
+    apiClient.retryDelays = [0, 0, 0];
+    events.length = 0;
+  });
+  t.afterEach(() => {
+    globalThis.fetch = originalFetch;
+    g.window = originalWindow;
+    apiClient.retryDelays = originalDelays;
+  });
+
+  await t.test("classifies only network/5xx gateway failures as transient", () => {
+    assert.equal(isTransientFailure(new ApiClientError("x", 0, "NETWORK_ERROR")), true);
+    assert.equal(isTransientFailure(new ApiClientError("x", 503, "HTTP_503")), true);
+    assert.equal(isTransientFailure(new ApiClientError("x", 504, "HTTP_504")), true);
+    assert.equal(isTransientFailure(new ApiClientError("x", 404, "NOT_FOUND")), false);
+    assert.equal(isTransientFailure(new ApiClientError("x", 500, "INTERNAL")), false);
+    assert.equal(isTransientFailure(new Error("x")), false);
+  });
+
+  await t.test("retries 503 and network errors, then succeeds and signals ready", async () => {
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      if (calls === 1) throw new TypeError("Failed to fetch");
+      if (calls === 2) return new Response("", { status: 503 });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    };
+    const res = await apiClient.get<{ ok: boolean }>("/api/v1/products");
+    assert.deepEqual(res, { ok: true });
+    assert.equal(calls, 3);
+    assert.deepEqual(events, ["waking", "ready"]);
+  });
+
+  await t.test("gives up after the retry schedule with the last error", async () => {
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      return new Response("", { status: 502 });
+    };
+    await assert.rejects(apiClient.get("/api/v1/products"), (err: unknown) => err instanceof ApiClientError && err.status === 502);
+    assert.equal(calls, 4); // first try + 3 retries
+    assert.deepEqual(events, ["waking", "ready"]);
+  });
+
+  await t.test("does not retry real errors such as 404", async () => {
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ error: { code: "NOT_FOUND", message: "nope" } }), { status: 404 });
+    };
+    await assert.rejects(apiClient.get("/api/v1/products/missing"));
+    assert.equal(calls, 1);
+    assert.deepEqual(events, []);
+  });
+});

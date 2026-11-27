@@ -260,15 +260,15 @@ function CheckoutContent() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <ShoppingBag className="h-6 w-6 text-emerald-600" />
-            Checkout & Order Payment
+            {t("checkout.title")}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Confirm your delivery address and pay securely with Razorpay.
+            {t("checkout.subtitle")}
           </p>
         </div>
         <Link href="/cart">
           <Button variant="ghost" size="sm" className="text-xs">
-            Return to Cart
+            {t("checkout.returnToCart")}
           </Button>
         </Link>
       </div>
@@ -315,7 +315,7 @@ function CheckoutContent() {
               <CheckCircle2 className="h-8 w-8 text-emerald-600" />
               <div>
                 <h2 className="text-lg font-bold text-emerald-900 dark:text-emerald-200">
-                  Payment Verified & Order Confirmed!
+                  {t("checkout.successTitle")}
                 </h2>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300">
                   Order Number: <span className="font-mono font-semibold">{order?.order_number}</span>
@@ -352,7 +352,7 @@ function CheckoutContent() {
             <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
               <Link href="/orders">
                 <Button variant="ghost" size="sm" className="text-xs">
-                  My Orders
+                  {t("checkout.myOrders")}
                 </Button>
               </Link>
               <Link
@@ -367,7 +367,7 @@ function CheckoutContent() {
                 }
               >
                 <Button variant="outline" size="sm" className="text-xs">
-                  View Order Details
+                  {t("checkout.viewDetails")}
                 </Button>
               </Link>
               <Link
@@ -382,7 +382,7 @@ function CheckoutContent() {
                 }
               >
                 <Button size="sm" className="bg-brand-yellow hover:bg-brand-yellow-dark text-ink text-xs gap-1.5">
-                  Track Order
+                  {t("checkout.trackOrder")}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               </Link>
@@ -409,19 +409,19 @@ function CheckoutContent() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4 text-emerald-600" />
-              Step 1: Confirm your order
+              {t("checkout.step1Title")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Your items are held for you while you check out. Choose where they should be delivered.
+              {t("checkout.step1Subtitle")}
             </p>
 
             {/* Saved Addresses Dropdown (for authenticated users with saved addresses) */}
             {addresses.length > 0 && (
               <div className="space-y-1.5">
                 <label htmlFor="addressSelect" className="text-xs font-medium text-foreground">
-                  Saved Delivery Addresses
+                  {t("checkout.savedAddresses")}
                 </label>
                 <select
                   id="addressSelect"
@@ -465,11 +465,11 @@ function CheckoutContent() {
               {isCreatingOrder ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating Immutable Order...
+                  {t("checkout.processing")}
                 </>
               ) : (
                 <>
-                  Confirm Order & Proceed to Payment
+                  {t("checkout.confirmAndPay")}
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </>
               )}
@@ -485,7 +485,7 @@ function CheckoutContent() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Order Details</CardTitle>
+                  <CardTitle className="text-base">{t("checkout.orderSummary")}</CardTitle>
                   <div className="flex items-center gap-2">
                     <Badge variant={order.status === "CONFIRMED" ? "default" : "secondary"} className="text-[10px]">
                       {t(`status.order.${order.status}`)}
@@ -498,7 +498,7 @@ function CheckoutContent() {
               </CardHeader>
               <CardContent className="space-y-3 text-xs">
                 <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Order Number:</span>
+                  <span className="text-muted-foreground">{t("orders.orderNum", { id: order.order_number })}</span>
                   <span className="font-mono font-medium">{order.order_number}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
@@ -506,7 +506,7 @@ function CheckoutContent() {
                   <span className="font-mono text-[11px] truncate max-w-[200px]">{order.id}</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
-                  <span className="text-muted-foreground">Items in Order:</span>
+                  <span className="text-muted-foreground">{t("checkout.itemsCount", { n: order.items?.length ?? 1 })}:</span>
                   <span>{order.items?.length ?? 1} item(s)</span>
                 </div>
                 <div className="flex justify-between py-1.5 border-b">
@@ -538,24 +538,24 @@ function CheckoutContent() {
           <div className="space-y-4">
             <Card className="border shadow-sm">
               <CardHeader className="pb-3 border-b">
-                <CardTitle className="text-sm font-semibold">Payment Summary</CardTitle>
+                <CardTitle className="text-sm font-semibold">{t("checkout.paymentSummary")}</CardTitle>
               </CardHeader>
               <CardContent className="pt-4 space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Subtotal:</span>
+                    <span>{t("checkout.subtotal")}</span>
                     <span>{formatPrice(order.subtotal_paise ?? order.total_payable_paise)}</span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>GST (Tax):</span>
+                    <span>{t("checkout.gst")}</span>
                     <span>{formatPrice(order.total_tax_paise ?? 0)}</span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Delivery:</span>
+                    <span>{t("checkout.delivery")}</span>
                     <span>{formatPrice(order.delivery_fee_paise ?? 0)}</span>
                   </div>
                   <div className="pt-2 border-t flex justify-between text-sm font-bold text-foreground">
-                    <span>Total payable:</span>
+                    <span>{t("checkout.totalPayable")}</span>
                     <span className="text-emerald-700 dark:text-emerald-400">
                       {formatPrice(order.total_payable_paise)}
                     </span>
@@ -576,7 +576,7 @@ function CheckoutContent() {
                       onDismissOrAmbiguous={startPollingFallback}
                     />
                     <p className="text-[10px] text-center text-muted-foreground mt-2">
-                      Payments are processed by Razorpay and confirmed by the BASKET server.
+                      {t("checkout.securityNote")}
                     </p>
                   </div>
                 )}

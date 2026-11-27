@@ -54,8 +54,8 @@ class Settings(BaseSettings):
 
     # Database (Aiven PostgreSQL)
     DATABASE_URL: str | None = None
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 5
+    DATABASE_POOL_SIZE: int = 20
+    DATABASE_MAX_OVERFLOW: int = 15
     DATABASE_SSL_MODE: str = "require"
 
     # Commerce Delivery Policy (Configurable in Phase 2C)
@@ -168,6 +168,23 @@ class Settings(BaseSettings):
     # Search uses PostgreSQL while the oldest unpublished outbox event is older
     # than this (the OpenSearch index would be stale).
     SEARCH_INDEX_MAX_LAG_SECONDS: int = 300
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, v: object) -> object:
+        """Accept plain Postgres URLs from managed hosts (Render, Railway, Heroku).
+
+        Hosting providers hand out ``postgres://`` or ``postgresql://`` URLs, which
+        SQLAlchemy would route to the psycopg2 driver. The app runs on asyncpg, so
+        rewrite the scheme. URLs that already name a driver are left untouched.
+        """
+        if isinstance(v, str):
+            url = v.strip()
+            for prefix in ("postgres://", "postgresql://"):
+                if url.startswith(prefix):
+                    return "postgresql+asyncpg://" + url[len(prefix) :]
+            return url
+        return v
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -450,7 +467,8 @@ class Settings(BaseSettings):
                 r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
                 r"192\.168\.\d{1,3}\.\d{1,3}|"
                 r"172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|"
-                r"[a-zA-Z0-9-]+\.trycloudflare\.com)(:\d+)?$"
+                r"[a-zA-Z0-9-]+\.trycloudflare\.com|"
+                r"[a-zA-Z0-9-]+\.vercel\.app)(:\d+)?$"
             )
         return None
 

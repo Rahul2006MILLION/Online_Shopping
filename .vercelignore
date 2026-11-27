@@ -1,0 +1,15 @@
+.env*
+*.env
+.dev_credentials.env
+backend/
+backups/
+*.dump
+docs/
+.ui-shots/
+.shared-demo/
+Hack UI/
+frontend/.next*
+frontend/.next-shared/
+frontend/.next-ui/
+frontend/.next-uibuild/
+frontend/node_modules/

@@ -12,6 +12,7 @@ import { DEFAULT_LANGUAGE, LANG_COOKIE, isLanguageCode, languageMeta } from "@/l
 import { InitialLoader, LOADING_CLASS_SCRIPT } from "@/components/loader/initial-loader";
 import { LoaderReady } from "@/components/loader/loader-ready";
 import { RouteLoader } from "@/components/loader/route-loader";
+import { BackendWakeBanner } from "@/components/shared/backend-wake-banner";
 import "@/components/loader/basket-loader.css";
 import "./globals.css";
 
@@ -50,6 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Header />
                 <main className="flex-1">{children}</main>
                 <Footer />
+                <BackendWakeBanner />
                </WishlistProvider>
               </CompareProvider>
             </CartProvider>

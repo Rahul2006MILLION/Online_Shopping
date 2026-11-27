@@ -34,6 +34,7 @@ import { reservationApi } from "@/lib/api/reservations";
 import { formatPrice } from "@/lib/utils";
 import { NegotiatorPanel } from "@/components/phase3/negotiator-panel";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useI18n } from "@/lib/i18n/i18n-context";
 import type {
   CartItem,
   Quote,
@@ -61,6 +62,7 @@ function CartPageInner() {
     refreshCart,
   } = useCart();
   const { isAuthenticated } = useAuth();
+  const { t } = useI18n();
   useLiveUpdates(["price.", "listing.", "inventory.", "store_inventory.", "offer.", "variant."], () => void refreshCart());
 
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
@@ -139,7 +141,6 @@ function CartPageInner() {
             if (isMounted) {
               setRejectedCode(couponCode);
               setCouponStatus("invalid");
-              setCouponCode("");
             }
             return;
           }
@@ -370,17 +371,16 @@ function CartPageInner() {
         </div>
         <div className="space-y-2">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
-            Your Basket is Empty
+            {t("cart.emptyTitle")}
           </h1>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            You haven&apos;t added any items to your shopping cart yet. Explore
-            products across multiple retailers and verified brands.
+            {t("cart.emptySubtitle")}
           </p>
         </div>
         <div>
           <Link href="/products">
             <Button className="bg-brand-yellow hover:bg-brand-yellow-dark text-ink font-semibold px-6 h-11 shadow-sm">
-              Explore Products
+              {t("cart.explore")}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           </Link>
@@ -410,26 +410,24 @@ function CartPageInner() {
       <div className="space-y-1">
         <div className="flex items-center text-xs text-muted-foreground gap-1.5">
           <Link href="/" className="hover:text-foreground">
-            Home
+            {t("nav.home") || "Home"}
           </Link>
           <ChevronRight className="h-3.5 w-3.5" />
-          <span className="text-foreground font-medium">Shopping Cart</span>
+          <span className="text-foreground font-medium">{t("cart.breadcrumb")}</span>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
-              Shopping Basket
+              {t("cart.title")}
               <Badge
                 variant="outline"
                 className="text-emerald-700 border-emerald-600/40 text-xs py-0.5"
               >
-                {totalQuantity} {totalQuantity === 1 ? "item" : "items"}
+                {totalQuantity} {totalQuantity === 1 ? t("cart.itemCountSingle") : t("cart.itemCount", { n: totalQuantity })}
               </Badge>
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Items from {cart?.retailers.length || 1} distinct{" "}
-              {cart?.retailers.length === 1 ? "retailer" : "retailers"} in one
-              unified cart.
+              {t("cart.retailersCount", { stores: cart?.retailers.length || 1 })}
             </p>
           </div>
 
@@ -441,7 +439,7 @@ function CartPageInner() {
             className="text-xs text-muted-foreground hover:text-red-600 self-start sm:self-auto"
           >
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Clear Basket
+            {t("cart.clear")}
           </Button>
         </div>
       </div>
@@ -738,18 +736,18 @@ function CartPageInner() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Receipt className="h-4 w-4 text-emerald-600" />
-                  Order Summary
+                  {t("cart.orderSummary")}
                 </CardTitle>
                 {isQuoteLoading ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                 ) : timeRemaining !== null && timeRemaining > 0 && !isQuoteStale ? (
                   <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-500/20">
                     <Clock className="h-3 w-3" />
-                    Locked for {formatCountdown(timeRemaining)}
+                    {t("cart.lockedFor", { time: formatCountdown(timeRemaining) })}
                   </span>
                 ) : isQuoteStale ? (
                   <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-500/20">
-                    Quote Stale
+                    {t("cart.quoteExpiredTitle")}
                   </span>
                 ) : null}
               </div>
@@ -758,13 +756,13 @@ function CartPageInner() {
               {/* Line item tallies */}
               <div className="space-y-2 text-xs text-muted-foreground">
                 <div className="flex justify-between">
-                  <span>Distinct Items ({itemCount})</span>
+                  <span>{t("cart.itemCount", { n: itemCount })}</span>
                   <span className="font-medium text-foreground">
                     {totalQuantity} units
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Subtotal (MRP/Catalogue)</span>
+                  <span>{t("cart.subtotal")}</span>
                   <span className="font-semibold text-foreground">
                     {formatPrice(quote ? quote.subtotal_paise : subtotalPaise)}
                   </span>
@@ -810,7 +808,7 @@ function CartPageInner() {
                 <div className="flex justify-between">
                   <span className="flex items-center gap-1">
                     <Truck className="h-3 w-3" />
-                    Delivery Charges
+                    {t("cart.deliveryCharges")}
                   </span>
                   <span
                     className={
@@ -821,7 +819,7 @@ function CartPageInner() {
                   >
                     {quote
                       ? quote.delivery_fee_paise === 0
-                        ? "FREE"
+                        ? t("cart.freeDelivery")
                         : formatPrice(quote.delivery_fee_paise)
                       : "Calculating..."}
                   </span>
@@ -914,10 +912,10 @@ function CartPageInner() {
               <div className="pt-3 border-t flex justify-between items-baseline">
                 <div>
                   <span className="text-sm font-bold text-foreground block">
-                    Total Payable
+                    {t("cart.totalPayable")}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    Inclusive of all taxes & delivery
+                    {t("cart.totalPayableSubtitle")}
                   </span>
                 </div>
                 <span className="text-2xl font-extrabold text-foreground">
@@ -936,7 +934,7 @@ function CartPageInner() {
                     <div className="flex items-center justify-between">
                       <Badge className="bg-emerald-600 text-white flex items-center gap-1 text-[11px]">
                         <ShieldCheck className="h-3 w-3" />
-                        Stock Reserved & Guaranteed
+                        {t("cart.stockGuaranteed")}
                       </Badge>
                       {reservationTimeRemaining !== null && (
                         <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
@@ -947,7 +945,7 @@ function CartPageInner() {
                       )}
                     </div>
                     <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
-                      Your items are held for you during checkout, so they cannot be sold to someone else meanwhile.
+                      {t("cart.stockGuaranteedBody")}
                     </p>
                     <div className="flex items-center justify-between pt-1">
                       <Button
@@ -964,7 +962,7 @@ function CartPageInner() {
                           size="sm"
                           className="bg-brand-yellow hover:bg-brand-yellow-dark text-ink font-semibold text-xs h-8 px-3"
                         >
-                          Checkout
+                          {t("cart.proceed")}
                           <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
                         </Button>
                       </Link>
@@ -989,7 +987,7 @@ function CartPageInner() {
                       </>
                     ) : (
                       <>
-                        Reserve Stock & Checkout
+                        {t("cart.checkout")}
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </>
                     )}

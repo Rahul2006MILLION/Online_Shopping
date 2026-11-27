@@ -152,6 +152,21 @@ export function RazorpayPaymentButton({
       };
 
       const rzp = new window.Razorpay(options);
+      // A declined or failed attempt keeps the Razorpay modal open so the customer
+      // can retry with another method; surface the reason on the page meanwhile.
+      // The order stays unpaid: only server-side verification (or the signed
+      // webhook) can mark it paid.
+      rzp.on("payment.failed", (response: unknown) => {
+        const description =
+          (response as { error?: { description?: string } } | null)?.error?.description;
+        onError(
+          new Error(
+            description
+              ? `Payment failed: ${description}. You can retry or choose another method.`
+              : "Payment failed. You can retry or choose another method."
+          )
+        );
+      });
       rzp.open();
     } catch (err) {
       setLoading(false);

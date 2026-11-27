@@ -68,7 +68,7 @@ frontend/.next-shared/
 
 # External experimental prototypes and agent configs
 Hack UI/
-.claude/
+.vercel/
 
 
 .ui-shots/

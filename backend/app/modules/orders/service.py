@@ -418,13 +418,6 @@ class OrderService:
                 status_code=409,
             )
 
-        if quote.status != QuoteStatus.ACTIVE.value:
-            raise AppException(
-                code="QUOTE_INVALID_STATUS",
-                message=f"Quote status is {quote.status}. Only active quotes can be ordered.",
-                status_code=409,
-            )
-
         # 5. Lock & Validate Inventory Reservation
         res = await self.repo.lock_reservation_for_update(req.reservation_id)
         if not res:
@@ -487,6 +480,20 @@ class OrderService:
                 message="Reservation hold has expired.",
                 status_code=409,
             )
+
+        is_reservation_active = (
+            res.status == ReservationStatus.ACTIVE.value and res_exp > now
+        )
+
+        if quote.status != QuoteStatus.ACTIVE.value:
+            if not (
+                quote.status == QuoteStatus.SUPERSEDED.value and is_reservation_active
+            ):
+                raise AppException(
+                    code="QUOTE_INVALID_STATUS",
+                    message=f"Quote status is {quote.status}. Only active quotes can be ordered.",
+                    status_code=409,
+                )
 
         # 5. Generate Human-Readable Order Number & Guest Access Token
         today_str = now.strftime("%Y%m%d")

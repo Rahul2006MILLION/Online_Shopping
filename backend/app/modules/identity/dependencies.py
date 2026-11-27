@@ -209,6 +209,11 @@ def _is_local_dev_origin(origin: str) -> bool:
         if sub and "." not in sub and all(c.isalnum() or c == "-" for c in sub):
             return True
 
+    if host.endswith(".vercel.app"):
+        sub = host[: -len(".vercel.app")]
+        if sub and "." not in sub and all(c.isalnum() or c == "-" for c in sub):
+            return True
+
     return False
 
 
@@ -246,6 +251,12 @@ async def verify_csrf_token(
         is_allowed = any(
             origin_base == allowed.rstrip("/") for allowed in allowed_origins
         )
+        if not is_allowed and settings.cors_origin_regex:
+            import re
+
+            if re.match(settings.cors_origin_regex, origin):
+                is_allowed = True
+
         if not is_allowed and (
             settings.is_production or not _is_local_dev_origin(origin_base)
         ):
